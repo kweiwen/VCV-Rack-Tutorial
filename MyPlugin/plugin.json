@@ -1,0 +1,23 @@
+{
+  "slug": "MyPlugin",
+  "name": "Elvins_First_Plugin",
+  "version": "2.0.0",
+  "license": "MIT",
+  "brand": "Elvin",
+  "author": "Elvin",
+  "authorEmail": "elvin@gmail.com",
+  "authorUrl": "",
+  "pluginUrl": "",
+  "manualUrl": "",
+  "sourceUrl": "",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+    {
+      "slug": "MyModule",
+      "name": "TEST",
+      "description": "JUST-A-TEST",
+      "tags": []
+    }
+  ]
+}
