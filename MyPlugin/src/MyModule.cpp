@@ -6,6 +6,8 @@
 // cd /Users/kweiwentseng/Downloads/MyPlugin/
 
 constexpr float DELAY_TIME_SECONDS = 0.25f;
+constexpr float BASE_DELAY_SECONDS = 0.012f;
+constexpr float LFO_DELAY_DEPTH_SECONDS = 0.003f;
 // constexpr float FEEDBACK = 0.35f;
 // constexpr float DRY_WET = 0.5f;
 
@@ -83,11 +85,13 @@ struct MyModule : Module
 
 	void process(const ProcessArgs &args) override
 	{
-		int delayTime = params[POT1].getValue(); // 1 - 12000
+		// int delayTime = params[POT1].getValue(); // 1 - 12000
 
 		phase_lfo = phase_lfo + 1.f * 20.f * args.sampleTime;
 		phase_lfo = std::modf(phase_lfo, &intPart_lfo);
 		float lfo = std::sin(phase_lfo * 2.f * M_PI);
+
+		float delayTime = (BASE_DELAY_SECONDS + lfo * LFO_DELAY_DEPTH_SECONDS) * args.sampleRate;
 
 		const float input = inputs[INPUT1].getVoltage();
 		const float delayedSignal = delayBuffer.readBuffer(delayTime);
