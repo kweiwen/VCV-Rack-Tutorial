@@ -1,22 +1,22 @@
 #include "plugin.hpp"
-#include "CircularBuffer.h"
+#include "FilterDesigner.h"
 
 // export RACK_DIR=/Users/kweiwentseng/Downloads/Rack-SDK
 // echo $RACK_DIR
 // cd /Users/kweiwentseng/Downloads/MyPlugin/
 
-constexpr float DELAY_TIME_SECONDS = 0.25f;
-constexpr float BASE_DELAY_SECONDS = 0.012f;
-constexpr float LFO_DELAY_DEPTH_SECONDS = 0.003f;
-// constexpr float FEEDBACK = 0.35f;
-// constexpr float DRY_WET = 0.5f;
+constexpr float MIN_CUTOFF_HZ = 20.f;
+constexpr float MAX_CUTOFF_HZ = 20000.f;
 
 struct MyModule : Module
 {
 	float phase_lfo = 0.f;
 	float intPart_lfo = 0.f;
-	CircularBuffer delayBuffer;
-	unsigned int delayInSamples = 1;
+	FilterDesigner filterDesigner;
+	float input1 = 0.f;
+	float input2 = 0.f;
+	float output1 = 0.f;
+	float output2 = 0.f;
 
 	enum ParamId
 	{
@@ -55,53 +55,60 @@ struct MyModule : Module
 	{
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
-		configParam(POT1, 1.f, 12000.f, 12000.f, "Delay time", " samples");
-		getParamQuantity(POT1)->snapEnabled = true;
+		configParam(POT1, MIN_CUTOFF_HZ, MAX_CUTOFF_HZ, 1000.f, "Cutoff frequency", " Hz");
+		configParam(POT2, 0.f, 5.f, 1.f, "Modulation depth", " octaves");
+		configParam(POT3, 0.05f, 20.f, 1.f, "Internal modulation rate", " Hz");
+		configParam(POT4, 0.025f, 40.f, 0.707f, "Resonance(Q)", "");
 
-		configInput(INPUT1, "");
-		configOutput(OUTPUT1, "");
-		configOutput(OUTPUT2, "");
-		configOutput(OUTPUT3, "");
+		configInput(INPUT1, "Audio");
+		configInput(INPUT2, "Cutoff modulation");
+		configOutput(OUTPUT1, "Low-pass filter");
+		configOutput(OUTPUT2, "Modulation");
 
-		configureDelay(48000.f);
-	}
-
-	void configureDelay(float sampleRate)
-	{
-		//=== 48000 * 0.25
-		//=== Delay buffer length = 12000
-		//=== Maximum delay time is 12000 sample
-		delayInSamples = static_cast<unsigned int>(sampleRate * DELAY_TIME_SECONDS);
-		if (delayInSamples < 1)
-			delayInSamples = 1;
-
-		delayBuffer.createCircularBuffer(delayInSamples + 1);
-	}
-
-	void onSampleRateChange(const SampleRateChangeEvent &e) override
-	{
-		configureDelay(e.sampleRate);
+		filterDesigner.model = E_LOW_PASS_2;
 	}
 
 	void process(const ProcessArgs &args) override
 	{
-		// int delayTime = params[POT1].getValue(); // 1 - 12000
-
-		phase_lfo = phase_lfo + 1.f * 20.f * args.sampleTime;
+		const float lfoRate = params[POT3].getValue();
+		phase_lfo = phase_lfo + lfoRate * args.sampleTime;
 		phase_lfo = std::modf(phase_lfo, &intPart_lfo);
-		float lfo = std::sin(phase_lfo * 2.f * M_PI);
-
-		float delayTime = (BASE_DELAY_SECONDS + lfo * LFO_DELAY_DEPTH_SECONDS) * args.sampleRate;
-
-		const float input = inputs[INPUT1].getVoltage();
-		const float delayedSignal = delayBuffer.readBuffer(delayTime);
-
-		// Feed part of the delayed signal back into the buffer to create repeats.
-		delayBuffer.writeBuffer(input);		
-		// delayBuffer.writeBuffer(input + delayedSignal * FEEDBACK);
+		const float lfo = std::sin(phase_lfo * 2.f * M_PI);
 		
-		outputs[OUTPUT1].setVoltage(lfo);
-		outputs[OUTPUT2].setVoltage(delayedSignal);
+		const float q = params[POT4].getValue();
+
+		// INPUT2 expects a bipolar -5 V to +5 V modulation signal. When it is
+		// unplugged, the internal LFO is used so the cutoff still moves.
+		const float modulation = inputs[INPUT2].isConnected()
+			? clamp(inputs[INPUT2].getVoltage() / 5.f, -1.f, 1.f)
+			: lfo;
+		const float modulationDepth = params[POT2].getValue();
+		const float baseCutoff = params[POT1].getValue();
+		const float highestCutoff = std::min(MAX_CUTOFF_HZ, args.sampleRate * 0.45f);
+		const float cutoff = clamp(
+			baseCutoff * std::pow(2.f, modulation * modulationDepth),
+			MIN_CUTOFF_HZ,
+			highestCutoff);
+
+		// Filter Designer returns {a0, a1, a2, b0, b1, b2}. Its coefficients
+		// are normalized to b0 = 1, so this is the Direct Form I equation.
+		filterDesigner.setParameter(cutoff, args.sampleRate, q);
+		const float *coefficients = filterDesigner.getCoefficients();
+		const float input = inputs[INPUT1].getVoltage();
+		const float filtered = coefficients[0] * input
+			+ coefficients[1] * input1
+			+ coefficients[2] * input2
+			- coefficients[4] * output1
+			- coefficients[5] * output2;
+
+		input2 = input1;
+		input1 = input;
+		output2 = output1;
+		output1 = filtered;
+
+		outputs[OUTPUT1].setVoltage(filtered);
+		outputs[OUTPUT2].setVoltage(modulation * 5.f);
+		lights[BLINK_LIGHT].setBrightness((modulation + 1.f) * 0.5f);
 	}
 };
 
