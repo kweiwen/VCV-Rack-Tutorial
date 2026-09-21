@@ -6,6 +6,11 @@
 enum E_FILTER_TYPE
 {
 	E_LOW_PASS_2,
+	E_HIGH_PASS_2,
+	E_BAND_PASS,
+	E_PEAK,
+	E_LOW_SHELF,
+	E_HIGH_SHELF,
 };
 
 class FilterDesigner
