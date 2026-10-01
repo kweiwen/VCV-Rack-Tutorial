@@ -94,6 +94,9 @@ struct MyModule : Module
 		// are normalized to b0 = 1, so this is the Direct Form I equation.
 		filterDesigner.setParameter(cutoff, args.sampleRate, q);
 		const float *coefficients = filterDesigner.getCoefficients();
+		// coeffiients[0] coefficients[1] coefficients[2] ... coefficients[5]
+
+
 		const float input = inputs[INPUT1].getVoltage();
 		const float filtered = coefficients[0] * input
 			+ coefficients[1] * input1

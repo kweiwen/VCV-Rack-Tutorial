@@ -2,6 +2,9 @@
 
 void FilterDesigner::setParameter(float cut_off, float sample_rate, float Q, float slope, float magnitude)
 {
+	// FilterDesigner (管理員)
+	// . :: []
+	// filter_graph(fc, sample_rate, Q, magnitude(dB))
 	omega = TWO_PI * cut_off / sample_rate;
 	sine_omega = sin(omega);
 	cosine_omega = cos(omega);
@@ -18,6 +21,9 @@ void FilterDesigner::setCoefficients()
 	case E_LOW_PASS_2:
 		alpha = sine_omega / (2 * q);
 
+		// 1. / b0
+		// 2. only numerator * gain
+
 		// denominator normalization
 		b0 = 1 + alpha;
 		b1 = (-2 * cosine_omega) / b0;
@@ -27,6 +33,22 @@ void FilterDesigner::setCoefficients()
 		a0 = (1 - cosine_omega) * gain / 2 / b0;
 		a1 = (1 - cosine_omega) * gain / b0;
 		a2 = (1 - cosine_omega) * gain / 2 / b0;
+
+		// set b0 into 1 after coefficients normalization 
+		b0 = 1;
+		break;
+	case E_HIGH_PASS_2:
+		alpha = sine_omega / (2 * q);
+
+		// denominator normalization
+		b0 = 1 + alpha;
+		b1 = (-2 * cosine_omega) / b0;
+		b2 = (1 - alpha) / b0;
+		
+		// numerator normalization
+		a0 = (1 + cosine_omega) / 2 / b0 * gain;
+		a1 = -(1 + cosine_omega) / b0 * gain;
+		a2 = (1 + cosine_omega) / 2 / b0 * gain;
 
 		// set b0 into 1 after coefficients normalization 
 		b0 = 1;
