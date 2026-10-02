@@ -1,23 +1,10 @@
 #include "plugin.hpp"
-#include "FilterDesigner.h"
-
-// export RACK_DIR=/Users/kweiwentseng/Downloads/Rack-SDK
-// echo $RACK_DIR
-// cd /Users/kweiwentseng/Downloads/MyPlugin/
 
 constexpr float MIN_CUTOFF_HZ = 20.f;
 constexpr float MAX_CUTOFF_HZ = 20000.f;
 
 struct MyModule : Module
 {
-	float phase_lfo = 0.f;
-	float intPart_lfo = 0.f;
-	FilterDesigner filterDesigner;
-	float input1 = 0.f;
-	float input2 = 0.f;
-	float output1 = 0.f;
-	float output2 = 0.f;
-
 	enum ParamId
 	{
 		POT1,	// 0
@@ -65,54 +52,18 @@ struct MyModule : Module
 		configOutput(OUTPUT1, "Low-pass filter");
 		configOutput(OUTPUT2, "Modulation");
 
-		filterDesigner.model = E_LOW_PASS_2;
+		configBypass(INPUT1, OUTPUT1);
 	}
 
-	void process(const ProcessArgs &args) override
+	void process(const ProcessArgs&) override
 	{
-		const float lfoRate = params[POT3].getValue();
-		phase_lfo = phase_lfo + lfoRate * args.sampleTime;
-		phase_lfo = std::modf(phase_lfo, &intPart_lfo);
-		const float lfo = std::sin(phase_lfo * 2.f * M_PI);
-		
-		const float q = params[POT4].getValue();
-
-		// INPUT2 expects a bipolar -5 V to +5 V modulation signal. When it is
-		// unplugged, the internal LFO is used so the cutoff still moves.
-		const float modulation = inputs[INPUT2].isConnected()
-			? clamp(inputs[INPUT2].getVoltage() / 5.f, -1.f, 1.f)
-			: lfo;
-		const float modulationDepth = params[POT2].getValue();
-		const float baseCutoff = params[POT1].getValue();
-		const float highestCutoff = std::min(MAX_CUTOFF_HZ, args.sampleRate * 0.45f);
-		const float cutoff = clamp(
-			baseCutoff * std::pow(2.f, modulation * modulationDepth),
-			MIN_CUTOFF_HZ,
-			highestCutoff);
-
-		// Filter Designer returns {a0, a1, a2, b0, b1, b2}. Its coefficients
-		// are normalized to b0 = 1, so this is the Direct Form I equation.
-		filterDesigner.setParameter(cutoff, args.sampleRate, q);
-		const float *coefficients = filterDesigner.getCoefficients();
-		// coeffiients[0] coefficients[1] coefficients[2] ... coefficients[5]
-
-
-		const float input = inputs[INPUT1].getVoltage();
-		const float filtered = coefficients[0] * input
-			+ coefficients[1] * input1
-			+ coefficients[2] * input2
-			- coefficients[4] * output1
-			- coefficients[5] * output2;
-
-		input2 = input1;
-		input1 = input;
-		output2 = output1;
-		output1 = filtered;
-
-		outputs[OUTPUT1].setVoltage(filtered);
-		outputs[OUTPUT2].setVoltage(modulation * 5.f);
-		lights[BLINK_LIGHT].setBrightness((modulation + 1.f) * 0.5f);
+		// Preparation stage: pass audio through without reading UI parameters.
+		outputs[OUTPUT1].setVoltage(inputs[INPUT1].getVoltage());
+		for (int outputId = OUTPUT2; outputId < OUTPUTS_LEN; ++outputId)
+			outputs[outputId].setVoltage(0.f);
+		lights[BLINK_LIGHT].setBrightness(0.f);
 	}
+
 };
 
 struct MyModuleWidget : ModuleWidget
