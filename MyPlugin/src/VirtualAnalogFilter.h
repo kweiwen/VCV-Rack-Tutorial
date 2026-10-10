@@ -19,7 +19,7 @@ struct TPTSVF
 	float fastTanh(float x) 
 	{
 		float x2 = x * x;
-		return x * (27.0f + x2) / (27.0f + 9.0f*x2);\
+		return x * (27.0f + x2) / (27.0f + 9.0f*x2);
 	}
 
 	// Even faster: cubic soft clip
@@ -27,7 +27,7 @@ struct TPTSVF
 	{
 		if (x > 1.0f) return 1.0f;
 		if (x < -1.0f) return -1.0f;
-		return x - xxx / 3.0f;
+		return x - x*x*x / 3.0f;
 	}
 
 	void setParams(float cutoffHz, float Q, float fs)

@@ -1,5 +1,5 @@
 #include "plugin.hpp"
-#include "TPTSVF.h"
+#include "VirtualAnalogFilter.h"
 
 #include <algorithm>
 #include <cmath>
