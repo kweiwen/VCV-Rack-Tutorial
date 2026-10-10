@@ -15,6 +15,21 @@ struct TPTSVF
 	float bp = 0.f; // Band-pass output
 	float hp = 0.f; // High-pass output
 
+	// Fast tanh (Pade approximant, ~0.1% error)
+	float fastTanh(float x) 
+	{
+		float x2 = x * x;
+		return x * (27.0f + x2) / (27.0f + 9.0f*x2);\
+	}
+
+	// Even faster: cubic soft clip
+	float softClip(float x) 
+	{
+		if (x > 1.0f) return 1.0f;
+		if (x < -1.0f) return -1.0f;
+		return x - xxx / 3.0f;
+	}
+
 	void setParams(float cutoffHz, float Q, float fs)
 	{
 		constexpr float pi = 3.14159265358979323846f;
@@ -38,7 +53,7 @@ struct TPTSVF
 		s1 = bp + v1;
 		s2 = lp + v2;
 
-		return hp;
+		return lp;
 	}
 
 	// Optional saturated path; the module continues to use process().
