@@ -1,10 +1,23 @@
 #include "plugin.hpp"
+#include "TPTSVF.h"
+
+#include <algorithm>
+#include <cmath>
+
+// export RACK_DIR=/Users/kweiwentseng/Downloads/Rack-SDK
+// echo $RACK_DIR
+// cd /Users/kweiwentseng/Downloads/MyPlugin/
+
 
 constexpr float MIN_CUTOFF_HZ = 20.f;
 constexpr float MAX_CUTOFF_HZ = 20000.f;
+constexpr float TWO_PI = 6.28318530717958647692f;
 
 struct MyModule : Module
 {
+	TPTSVF filter;
+	float lfoPhase = 0.f;
+
 	enum ParamId
 	{
 		POT1,	// 0
@@ -51,19 +64,50 @@ struct MyModule : Module
 		configInput(INPUT2, "Cutoff modulation");
 		configOutput(OUTPUT1, "Low-pass filter");
 		configOutput(OUTPUT2, "Modulation");
+		configLight(BLINK_LIGHT, "Cutoff modulation");
 
 		configBypass(INPUT1, OUTPUT1);
 	}
 
-	void process(const ProcessArgs&) override
+	void onReset(const ResetEvent& e) override
 	{
-		// Preparation stage: pass audio through without reading UI parameters.
-		outputs[OUTPUT1].setVoltage(inputs[INPUT1].getVoltage());
-		for (int outputId = OUTPUT2; outputId < OUTPUTS_LEN; ++outputId)
-			outputs[outputId].setVoltage(0.f);
-		lights[BLINK_LIGHT].setBrightness(0.f);
+		Module::onReset(e);
+		filter = TPTSVF{};
+		lfoPhase = 0.f;
 	}
 
+	void onSampleRateChange(const SampleRateChangeEvent& e) override
+	{
+		Module::onSampleRateChange(e);
+		filter = TPTSVF{};
+	}
+
+	void process(const ProcessArgs& args) override
+	{
+		lfoPhase += params[POT3].getValue() * args.sampleTime;
+		lfoPhase -= std::floor(lfoPhase);
+		const float lfo = std::sin(TWO_PI * lfoPhase);
+
+		// External cutoff CV replaces the internal LFO when connected.
+		const float modulation = inputs[INPUT2].isConnected()
+			? clamp(inputs[INPUT2].getVoltage() / 5.f, -1.f, 1.f)
+			: lfo;
+		const float highestCutoff = std::min(MAX_CUTOFF_HZ, args.sampleRate * 0.45f);
+		const float cutoff = clamp(
+			params[POT1].getValue() * std::exp2(modulation * params[POT2].getValue()),
+			MIN_CUTOFF_HZ,
+			highestCutoff);
+		filter.setParams(cutoff, params[POT4].getValue(), args.sampleRate);
+
+		// // Restore mono outputs after Rack's bypass may have passed polyphonic audio.
+		// for (auto& output : outputs)
+		// 	output.setChannels(1);
+		outputs[OUTPUT1].setVoltage(filter.process(inputs[INPUT1].getVoltage()));
+		outputs[OUTPUT2].setVoltage(modulation * 5.f);
+		// for (int outputId = OUTPUT3; outputId < OUTPUTS_LEN; ++outputId)
+			// outputs[outputId].setVoltage(0.f);
+		lights[BLINK_LIGHT].setBrightness((modulation + 1.f) * 0.5f);
+	}
 };
 
 struct MyModuleWidget : ModuleWidget
