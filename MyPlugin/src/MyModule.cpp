@@ -15,7 +15,7 @@ constexpr float TWO_PI = 6.28318530717958647692f;
 
 struct MyModule : Module
 {
-	TPTSVF filter;
+	TPTLadder filter;
 	float lfoPhase = 0.f;
 
 	enum ParamId
@@ -58,7 +58,7 @@ struct MyModule : Module
 		configParam(POT1, MIN_CUTOFF_HZ, MAX_CUTOFF_HZ, 1000.f, "Cutoff frequency", " Hz");
 		configParam(POT2, 0.f, 5.f, 1.f, "Modulation depth", " octaves");
 		configParam(POT3, 0.05f, 20.f, 1.f, "Internal modulation rate", " Hz");
-		configParam(POT4, 0.025f, 40.f, 0.707f, "Resonance(Q)", "");
+		configParam(POT4, 0.025f, 1.f, 0.707f, "Resonance(Q)", "");
 
 		configInput(INPUT1, "Audio");
 		configInput(INPUT2, "Cutoff modulation");
@@ -72,14 +72,14 @@ struct MyModule : Module
 	void onReset(const ResetEvent& e) override
 	{
 		Module::onReset(e);
-		filter = TPTSVF{};
+		filter = TPTLadder{};
 		lfoPhase = 0.f;
 	}
 
 	void onSampleRateChange(const SampleRateChangeEvent& e) override
 	{
 		Module::onSampleRateChange(e);
-		filter = TPTSVF{};
+		filter = TPTLadder{};
 	}
 
 	void process(const ProcessArgs& args) override

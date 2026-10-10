@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#define PI 3.14159265358979323846
+
 // TPT State Variable Filter - per-sample processing.
 struct TPTSVF
 {
@@ -32,8 +34,7 @@ struct TPTSVF
 
 	void setParams(float cutoffHz, float Q, float fs)
 	{
-		constexpr float pi = 3.14159265358979323846f;
-		g = std::tan(pi * cutoffHz / fs);
+		g = std::tan(PI * cutoffHz / fs);
 		R = 1.f / (2.f * Q);
 		D = 1.f / (1.f + 2.f * R * g + g * g);
 	}
@@ -74,4 +75,41 @@ struct TPTSVF
 
 		return lp;
 	}
+};
+
+
+struct TPTLadder {
+    float s[4] = {0};  // four integrator states
+    float g;           // tan(pi * fc / fs)
+    float k;           // resonance 0-4
+    float G;           // g / (1 + g)
+
+    void setParams(float cutoffHz, float res, float fs) {
+        g = tanf(PI * cutoffHz / fs);
+        G = g / (1.0f + g);
+        k = res * 4.0f;  // 0-1 maps to 0-4
+    }
+
+    float process(float x) {
+        // Feedback contribution from states
+        float G2 = G * G;
+        float G3 = G2 * G;
+        float G4 = G3 * G;
+		float S = (1.f - G) * (G3*s[0] + G2*s[1] + G*s[2] + s[3]);
+
+        // Solve for output (linear case)
+        float y4 = (G4*x + S) / (1.0f + k*G4);
+
+        // Back-substitute: input after feedback
+        float u = x - k * y4;
+
+        // Process through stages
+        float y = u;
+        for (int i = 0; i < 4; i++) {
+            float v = (y - s[i]) * G;
+            y = v + s[i];
+            s[i] = y + v;
+        }
+        return y;
+    }
 };
