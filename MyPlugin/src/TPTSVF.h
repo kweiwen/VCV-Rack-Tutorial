@@ -38,6 +38,25 @@ struct TPTSVF
 		s1 = bp + v1;
 		s2 = lp + v2;
 
+		return hp;
+	}
+
+	// Optional saturated path; the module continues to use process().
+	float processLinearWithSaturation(float x)
+	{
+		// Linear ZDF core. Compute both integrator increments before saturation.
+		hp = (x - (2.f * R + g) * s1 - s2) * D;
+		const float v1 = g * hp;
+		bp = v1 + s1;
+		const float v2 = g * bp;
+		lp = v2 + s2;
+
+		// Saturate outputs before updating states.
+		bp = std::tanh(bp);
+		lp = std::tanh(lp);
+		s1 = bp + v1;
+		s2 = lp + v2;
+
 		return lp;
 	}
 };
