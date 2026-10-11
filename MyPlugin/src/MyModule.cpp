@@ -58,7 +58,8 @@ struct MyModule : Module
 		configParam(POT1, MIN_CUTOFF_HZ, MAX_CUTOFF_HZ, 1000.f, "Cutoff frequency", " Hz");
 		configParam(POT2, 0.f, 5.f, 1.f, "Modulation depth", " octaves");
 		configParam(POT3, 0.05f, 20.f, 1.f, "Internal modulation rate", " Hz");
-		configParam(POT4, 0.025f, 1.f, 0.707f, "Resonance(Q)", "");
+		configParam(POT4, 0.025f,  1.f, 0.707f, "Resonance(Q)", ""); // for Ladder Filter
+		// configParam(POT4, 0.025f, 20.f, 0.707f, "Resonance(Q)", ""); // for State Variable Filter
 
 		configInput(INPUT1, "Audio");
 		configInput(INPUT2, "Cutoff modulation");
@@ -102,7 +103,11 @@ struct MyModule : Module
 		// // Restore mono outputs after Rack's bypass may have passed polyphonic audio.
 		// for (auto& output : outputs)
 		// 	output.setChannels(1);
-		outputs[OUTPUT1].setVoltage(filter.process(inputs[INPUT1].getVoltage()));
+
+		float x = inputs[INPUT1].getVoltage();
+		float y = filter.process(x);
+
+		outputs[OUTPUT1].setVoltage(y);
 		outputs[OUTPUT2].setVoltage(modulation * 5.f);
 		// for (int outputId = OUTPUT3; outputId < OUTPUTS_LEN; ++outputId)
 			// outputs[outputId].setVoltage(0.f);

@@ -78,19 +78,22 @@ struct TPTSVF
 };
 
 
-struct TPTLadder {
+struct TPTLadder 
+{
     float s[4] = {0};  // four integrator states
     float g;           // tan(pi * fc / fs)
     float k;           // resonance 0-4
     float G;           // g / (1 + g)
 
-    void setParams(float cutoffHz, float res, float fs) {
+    void setParams(float cutoffHz, float res, float fs) 
+	{
         g = tanf(PI * cutoffHz / fs);
         G = g / (1.0f + g);
         k = res * 4.0f;  // 0-1 maps to 0-4
     }
 
-    float process(float x) {
+    float process(float x) 
+	{
         // Feedback contribution from states
         float G2 = G * G;
         float G3 = G2 * G;
@@ -105,7 +108,8 @@ struct TPTLadder {
 
         // Process through stages
         float y = u;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++) 
+		{
             float v = (y - s[i]) * G;
             y = v + s[i];
             s[i] = y + v;
